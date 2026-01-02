@@ -1,5 +1,9 @@
+use std::{fs, path::PathBuf};
+
 use bevy::prelude::*;
 use storyframe::{Renderer, core::configuration::Configuration, engine::VisualizationEngine};
+
+use crate::file_id::{FileTypeSuggestion, suggestion};
 
 #[derive(Debug)]
 pub enum VisualizationKind {
@@ -12,7 +16,7 @@ pub enum VisualizationKind {
 pub enum VisualizerState {
     #[default]
     Input,
-    Loaded,
+    Loading,
     Grid,
 }
 
@@ -43,14 +47,40 @@ pub fn configure_visualization_system(
         };
     }
 }
+
+#[derive(Resource)]
+pub struct HoveredFile(pub String);
+
+#[derive(Resource)]
+pub struct DroppedFile(pub PathBuf);
 pub fn file_drop(mut commands: Commands, mut evr_dnd: MessageReader<FileDragAndDrop>) {
     // commands.spawn(Text::new("May your woes be many, and your days few..."));
     for ev in evr_dnd.read() {
-        if let FileDragAndDrop::DroppedFile { window, path_buf } = ev {
-            println!(
-                "Dropped file with path: {:?}, in window id: {:?}",
-                path_buf, window
-            );
+        match ev {
+            FileDragAndDrop::HoveredFile {
+                window: _,
+                path_buf,
+            } => {
+                commands.insert_resource(HoveredFile(
+                    path_buf
+                        .to_str()
+                        .unwrap_or("Unreadable path...")
+                        .to_string(),
+                ));
+            }
+            FileDragAndDrop::HoveredFileCanceled { window: _ } => {
+                commands.remove_resource::<HoveredFile>();
+            }
+            FileDragAndDrop::DroppedFile { window, path_buf } => {
+                commands.remove_resource::<HoveredFile>();
+                commands.insert_resource(DroppedFile(path_buf.clone()));
+                commands.insert_resource(suggestion(path_buf));
+                commands.set_state(VisualizerState::Loading);
+                println!(
+                    "Dropped file with path: {:?}, in window id: {:?}",
+                    path_buf, window
+                );
+            }
         }
     }
 }

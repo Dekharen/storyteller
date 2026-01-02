@@ -5,4 +5,9 @@ default:
 
 build: 
   cargo build
-  
+
+release:
+  cargo build -r
+
+rr:
+  cargo run -r
